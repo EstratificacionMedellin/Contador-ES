@@ -1,0 +1,91 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Asignaciones</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .card {
+            background-color: #1f1f1f;
+        }
+        .table th, .table td {
+            color: #fff;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 🔒 Barra superior -->
+    <div class="d-flex justify-content-between align-items-center px-4 py-2 mb-4" style="background-color: #1e1e1e;">
+        <div>
+            👤 {{ request.user.get_full_name|default:request.user.username }}
+        </div>
+        <div class="d-flex gap-2">
+            {% if request.user.is_superuser or request.user.groups|length > 0 and request.user.groups.all.0.name == "administradores" %}
+                <a href="{% url 'dashboard' %}" class="btn btn-warning btn-sm">📊 Dashboard</a>
+            {% endif %}
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-light btn-sm">Cerrar sesión</button>
+            </form>
+        </div>
+    </div>
+
+    {% if request.user.is_superuser or request.user.groups|length > 0 and request.user.groups.all.0.name == "administradores" %}
+
+    <!-- 📊 Reporte -->
+    <div class="container">
+        <div class="card shadow p-4">
+            <div class="mb-4">
+                <h3 class="text-light">Reporte de Asignaciones por Usuario</h3>
+            </div>
+
+            <table class="table table-dark table-bordered table-hover text-center">
+                <thead class="table-secondary text-dark">
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Hoy</th>
+                        <th>Esta Semana</th>
+                        <th>Este Mes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in resumen %}
+                        <tr>
+                            <td>{{ r.usuario }}</td>
+                            <td>{{ r.hoy }}</td>
+                            <td>{{ r.semana }}</td>
+                            <td>{{ r.mes }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4">No hay datos disponibles.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- ❌ Acceso restringido -->
+    <div class="container mt-5">
+        <div class="alert alert-danger">No tienes permisos para ver esta página.</div>
+    </div>
+    {% endif %}
+
+</body>
+</html>
+
+
+
+
+
+
+

@@ -1,0 +1,73 @@
+{% load static %}
+{% load widget_tweaks %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Iniciar Sesión</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #121212;
+            color: #fff;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 80px auto;
+            padding: 30px;
+            background-color: #1f1f1f;
+            border-radius: 10px;
+        }
+        img.logo {
+            max-width: 180px;
+            display: block;
+            margin: 0 auto 20px auto;
+        }
+        a {
+            color: #80cbc4;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="login-container shadow-lg">
+        <!-- Logo institucional -->
+        <img src="{% static 'img/logo.jpg' %}" alt="Logo" class="logo">
+
+        <h3 class="text-center mb-4">Iniciar Sesión</h3>
+
+        {% if form.errors %}
+            <div class="alert alert-danger text-center">
+                Nombre de usuario o contraseña incorrectos.
+            </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Usuario</label>
+                {% render_field form.username class="form-control" placeholder="Ingrese su usuario" %}
+            </div>
+            <div class="mb-3">
+                <label for="id_password" class="form-label">Contraseña</label>
+                {% render_field form.password class="form-control" placeholder="Ingrese su contraseña" %}
+            </div>
+            <div class="d-grid mb-3">
+                <button type="submit" class="btn btn-primary">Ingresar</button>
+            </div>
+        </form>
+
+        <!-- Recuperar contraseña -->
+        <div class="text-center mt-2">
+            <a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
+

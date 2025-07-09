@@ -1,27 +1,8 @@
 from django import forms
-from .models import Asignacion
-import psycopg2
-from decouple import config
+from .models import Asignacion, DummyRadicado  # DummyRadicado apunta a zcatt_sgto_trmte
 
-def obtener_personas():
-    try:
-        conn = psycopg2.connect(
-            dbname=config("DB_NAME"),
-            user=config("DB_USER"),
-            password=config("DB_PASSWORD"),
-            host=config("DB_HOST"),
-            port=config("DB_PORT")
-        )
-        cur = conn.cursor()
-        cur.execute("SELECT nombre FROM personas ORDER BY nombre ASC")
-        resultados = cur.fetchall()
-        conn.close()
-        return [(r[0], r[0]) for r in resultados]
-    except:
-        return []
 
 class AsignacionForm(forms.ModelForm):
-    asignado = forms.ChoiceField(choices=[], label="Asignado a")
     dependencia = forms.ChoiceField(choices=[
         ("AVALUOS", "AVALUOS"),
         ("CARTOGRAFIA", "CARTOGRAFIA"),
@@ -33,22 +14,25 @@ class AsignacionForm(forms.ModelForm):
 
     class Meta:
         model = Asignacion
-        fields = ['cbmls', 'asignado', 'radicado', 'dependencia']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['asignado'].choices = obtener_personas()
+        fields = ['cbmls', 'radicado', 'dependencia']
 
     def clean_cbmls(self):
-        cbmls = self.cleaned_data['cbmls']
-        if not cbmls.isdigit() or len(cbmls) != 11:
-            raise forms.ValidationError("CBMLS debe tener exactamente 11 dígitos.")
+        cbmls = self.cleaned_data.get('cbmls')
+        if not cbmls or not cbmls.isdigit() or len(cbmls) != 11:
+            raise forms.ValidationError("El CBMLS debe tener exactamente 11 dígitos numéricos.")
         return cbmls
 
     def clean_radicado(self):
-        radicado = self.cleaned_data['radicado']
-        if not radicado.isdigit() or len(radicado) not in [12, 13]:
-            raise forms.ValidationError("Radicado debe tener 12 o 13 dígitos.")
+        radicado = self.cleaned_data.get('radicado')
+
+        # Validación de formato
+        if not radicado or not radicado.isdigit() or len(radicado) not in [12, 13]:
+            raise forms.ValidationError("El Radicado debe tener 12 o 13 dígitos numéricos.")
+
+        # Validación contra la tabla en la base de datos secundaria
+        if not DummyRadicado.objects.using('secundaria').filter(nm_solicitud=radicado).exists():
+            raise forms.ValidationError("El número de radicado no existe en la base de datos oficial.")
+
         return radicado
 
     def clean(self):
@@ -56,16 +40,9 @@ class AsignacionForm(forms.ModelForm):
         cbmls = cleaned_data.get('cbmls')
         radicado = cleaned_data.get('radicado')
 
-        if cbmls and radicado:
-            if Asignacion.objects.filter(cbmls=cbmls, radicado=radicado).exists():
-                raise forms.ValidationError("Ya existe una asignación con ese CBMLS y radicado.")
-
-            existente = Asignacion.objects.filter(cbmls=cbmls).first()
-            if existente:
-                raise forms.ValidationError(
-                    f"Este CBMLS ya fue asignado anteriormente con el ID: {existente.id} y el Radicado: {existente.radicado}"
-)
-                
-
-
-
+        # Puedes agregar validaciones cruzadas aquí si lo deseas
+        # Ejemplo:
+        # if cbmls and radicado and cbmls[-3:] == radicado[-3:]:
+        #     raise forms.ValidationError("El CBMLS y Radicado no deben terminar igual.")
+        
+        return cleaned_data

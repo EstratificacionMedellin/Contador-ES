@@ -1,0 +1,269 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard de Asignaciones</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #111;
+            color: #f0f0f0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        .chart-box {
+            flex: 1 1 500px;
+            max-width: 600px;
+            min-height: 420px;
+            background-color: #1c1c1c;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+        }
+        .chart-box h6 {
+            text-align: center;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        .table th, .table td {
+            vertical-align: middle;
+        }
+        @media print {
+            .no-break {
+                page-break-inside: avoid;
+            }
+            #btn-exportar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% if request.user.is_superuser or request.user.groups.all.0.name == "administradores" %}
+
+    <div class="d-flex justify-content-between align-items-center px-4 py-2 mb-4 bg-secondary">
+        <div>👤 {{ request.user.get_full_name|default:request.user.username }}</div>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-light btn-sm" type="submit">Cerrar sesión</button>
+        </form>
+    </div>
+
+    <div class="container mb-5">
+        <h2 class="mb-4">Dashboard de Asignaciones</h2>
+
+        <!-- Totales -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-header">Total Hoy</div>
+                    <div class="card-body">
+                        <h5 class="card-title" id="total-hoy">{{ total_hoy }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-header">Total del Mes</div>
+                    <div class="card-body">
+                        <h5 class="card-title" id="total-mes">{{ total_mes }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-dark table-hover text-center align-middle" id="tablaResumen">
+                <thead class="table-secondary text-dark">
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Hoy</th>
+                        <th>Semana</th>
+                        <th>Mes</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuerpo">
+                    {% for r in resumen %}
+                        <tr>
+                            <td>{{ r.usuario }}</td>
+                            <td>{{ r.hoy }}</td>
+                            <td>{{ r.semana }}</td>
+                            <td>{{ r.mes }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="chart-container no-break">
+            <div class="chart-box">
+                <h6>Asignaciones del Mes por Usuario</h6>
+                <canvas id="graficoBarra"></canvas>
+            </div>
+            <div class="chart-box">
+                <h6>Asignaciones por Dependencia</h6>
+                <canvas id="graficoPastel"></canvas>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button class="btn btn-outline-light mt-3" id="btn-exportar" onclick="window.print()">📄 Exportar a PDF</button>
+        </div>
+    </div>
+
+    <!-- Variables JavaScript generadas desde Django -->
+    <script>
+        const datosResumen = {{ resumen|safe }};
+        const datosPieLabels = {{ labels|safe }};
+        const datosPieData = {{ datos|safe }};
+        const totalHoy = {{ total_hoy }};
+        const totalMes = {{ total_mes }};
+    </script>
+
+    <!-- Scripts Chart.js -->
+    <script>
+        let graficoBarra, graficoPastel;
+
+        function renderGraficos(resumen, labels, datos, totalHoy, totalMes) {
+            document.getElementById("total-hoy").textContent = totalHoy;
+            document.getElementById("total-mes").textContent = totalMes;
+
+            const tbody = document.querySelector("#tablaResumen tbody");
+            tbody.innerHTML = "";
+            resumen.forEach(r => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${r.usuario}</td>
+                        <td>${r.hoy}</td>
+                        <td>${r.semana}</td>
+                        <td>${r.mes}</td>
+                    </tr>`;
+            });
+
+            // Preparar datos de barras
+            const usuarios = resumen.map(r => r.usuario);
+            const datosMes = resumen.map(r => r.mes);
+
+            // Gráfico de barras
+            if (graficoBarra) graficoBarra.destroy();
+            graficoBarra = new Chart(document.getElementById('graficoBarra'), {
+                type: 'bar',
+                data: {
+                    labels: usuarios,
+                    datasets: [{
+                        label: 'Asignaciones del Mes',
+                        data: datosMes,
+                        backgroundColor: 'rgba(0, 153, 255, 0.7)',
+                        borderColor: 'rgba(0, 153, 255, 1)',
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: "#ccc" }, grid: { color: "#333" }},
+                        y: { beginAtZero: true, ticks: { color: "#ccc" }, grid: { color: "#333" }}
+                    },
+                    onClick: (e, item) => {
+                        if (item.length > 0) {
+                            const usuario = graficoBarra.data.labels[item[0].index];
+                            fetch(`/dashboard/?usuario=${encodeURIComponent(usuario)}`, {
+                                headers: { "x-requested-with": "XMLHttpRequest" }
+                            })
+                            .then(resp => resp.json())
+                            .then(data => renderGraficos(data.resumen, data.labels, data.datos, data.total_hoy, data.total_mes));
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de pastel
+            if (graficoPastel) graficoPastel.destroy();
+            graficoPastel = new Chart(document.getElementById('graficoPastel'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Asignaciones por Dependencia',
+                        data: datos,
+                        backgroundColor: [
+                            '#1abc9c', '#3498db', '#9b59b6', '#f39c12',
+                            '#e74c3c', '#2ecc71', '#34495e', '#fd79a8'
+                        ],
+                        borderColor: '#111',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '50%',
+                    plugins: {
+                        legend: {
+                            labels: { color: "#fff" }
+                        },
+                        tooltip: {
+                            backgroundColor: "#222",
+                            titleColor: "#fff",
+                            bodyColor: "#ccc"
+                        }
+                    },
+                    onClick: (e, item) => {
+                        if (item.length > 0) {
+                            const dependencia = graficoPastel.data.labels[item[0].index];
+                            fetch(`/dashboard/?dependencia=${encodeURIComponent(dependencia)}`, {
+                                headers: { "x-requested-with": "XMLHttpRequest" }
+                            })
+                            .then(resp => resp.json())
+                            .then(data => renderGraficos(data.resumen, data.labels, data.datos, data.total_hoy, data.total_mes));
+                        }
+                    }
+                }
+            });
+        }
+
+        // Reiniciar al hacer clic fuera de los gráficos
+        document.body.addEventListener("click", (e) => {
+            if (!e.target.closest("canvas")) {
+                fetch("/dashboard/", {
+                    headers: { "x-requested-with": "XMLHttpRequest" }
+                })
+                .then(resp => resp.json())
+                .then(data => renderGraficos(data.resumen, data.labels, data.datos, data.total_hoy, data.total_mes));
+            }
+        });
+
+        // Inicialización
+        document.addEventListener("DOMContentLoaded", () => {
+            renderGraficos(datosResumen, datosPieLabels, datosPieData, totalHoy, totalMes);
+        });
+    </script>
+
+{% else %}
+    <div class="container mt-5">
+        <div class="alert alert-danger">No tienes permisos para ver esta página.</div>
+    </div>
+{% endif %}
+</body>
+</html>

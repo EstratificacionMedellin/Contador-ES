@@ -1,86 +1,178 @@
+{% load static %}
 {% load widget_tweaks %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Formulario de Asignación de ES</title>
-    
-    <!-- Bootstrap CSS -->
+    <title>Formulario de Asignación</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Select2 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        body {
+            background-color: #121212;
+            color: #fff;
+        }
+        .card {
+            background-color: #1f1f1f;
+        }
+        .recommendation {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body>
 
-    <div class="container mt-5">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4>Formulario de Asignación de ES</h4>
-            </div>
-            <div class="card-body">
-                {% if mensaje %}
-                    <div class="alert alert-success">{{ mensaje }}</div>
-                {% endif %}
+<!-- 🔒 Barra superior -->
+<div class="d-flex justify-content-between align-items-center px-4 py-2 mb-4" style="background-color: #1e1e1e;">
+    <div>
+        👤 {{ request.user.get_full_name|default:request.user.username }}
+    </div>
+    <div class="d-flex gap-2">
+        {% if es_admin %}
+            <a href="{% url 'dashboard' %}" class="btn btn-warning btn-sm">📊 Dashboard</a>
+        {% endif %}
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-light btn-sm">Cerrar sesión</button>
+        </form>
+    </div>
+</div>
 
-                {% if form.errors %}
-                    <div class="alert alert-danger">
-                        {{ form.errors }}
-                    </div>
-                {% endif %}
+<!-- 📋 Formulario principal -->
+<div class="container">
+    <div class="card shadow text-white">
+        <div class="card-header bg-dark">
+            <h4>Formulario de Asignación</h4>
+        </div>
+        <div class="card-body">
+            {% if mensaje %}
+                <div class="alert alert-success">{{ mensaje }}</div>
+            {% endif %}
+            {% if form.errors %}
+                <div class="alert alert-danger">{{ form.errors }}</div>
+            {% endif %}
 
-                {% if advertencia %}
-                    <div class="alert alert-warning">
-                        <p>{{ advertencia }}</p>
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="forzar" value="1">
-                            <button type="submit" class="btn btn-danger mt-2">Sí, continuar</button>
-                            <a href="/" class="btn btn-secondary mt-2">Cancelar</a>
-                        </form>
-                    </div>
-                {% else %}
+            {% if advertencia %}
+                <div class="alert alert-warning">
+                    <p>{{ advertencia }}</p>
                     <form method="post">
                         {% csrf_token %}
-                        <div class="mb-3">
-                            <label for="id_cbmls" class="form-label">CBMLS</label>
-                            {% render_field form.cbmls class="form-control" %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="id_asignado" class="form-label">Asignado a</label>
-                            {% render_field form.asignado class="form-select" %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="id_radicado" class="form-label">Radicado</label>
-                            {% render_field form.radicado class="form-control" %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="id_dependencia" class="form-label">Dependencia</label>
-                            {% render_field form.dependencia class="form-select" %}
-                        </div>
-
-                        <button type="submit" class="btn btn-success">Guardar</button>
+                        <input type="hidden" name="forzar" value="1">
+                        <button type="submit" class="btn btn-danger mt-2">Sí, continuar</button>
+                        <a href="/" class="btn btn-light mt-2">Cancelar</a>
                     </form>
-                {% endif %}
-            </div>
+                </div>
+            {% else %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_cbmls" class="form-label">CBMLS</label>
+                        {% render_field form.cbmls class="form-control" %}
+                        <div class="recommendation">Ingrese el número CBMLS, por ejemplo: <code>12345678901</code></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_radicado" class="form-label">Radicado</label>
+                        {% render_field form.radicado class="form-control" %}
+                        <div class="recommendation">Verifique que el radicado exista en la base de datos antes de continuar.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_dependencia" class="form-label">Dependencia</label>
+                        {% render_field form.dependencia class="form-select" %}
+                        <div class="recommendation">Seleccione la dependencia correspondiente al trámite.</div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Guardar</button>
+                </form>
+            {% endif %}
         </div>
     </div>
+</div>
 
-    <!-- jQuery + Bootstrap JS + Select2 -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<!-- ▼▼▼ Gráficos: visibles solo para usuarios normales -->
+{% if not es_admin %}
+<div class="container mt-5">
+    <h4 class="text-center text-white">Tus Asignaciones del Mes</h4>
+    <div class="row mt-4 mb-5">
+        <div class="col-md-6">
+            <canvas id="grafico_barras"></canvas>
+        </div>
+        <div class="col-md-6">
+            <canvas id="grafico_pie"></canvas>
+        </div>
+    </div>
+</div>
 
-    <script>
-        $(document).ready(function() {
-            $('#id_asignado').select2({ placeholder: "Selecciona un usuario" });
-            $('#id_dependencia').select2({ placeholder: "Selecciona una dependencia" });
-        });
-    </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctxBarras = document.getElementById('grafico_barras').getContext('2d');
+    new Chart(ctxBarras, {
+        type: 'bar',
+        data: {
+            labels: {{ barras_labels|safe }},
+            datasets: [{
+                label: 'Asignaciones por Día',
+                data: {{ barras_datos|safe }},
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            }
+        }
+    });
+
+    const ctxPie = document.getElementById('grafico_pie').getContext('2d');
+    new Chart(ctxPie, {
+        type: 'pie',
+        data: {
+            labels: {{ pie_labels|safe }},
+            datasets: [{
+                data: {{ pie_datos|safe }},
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                    '#9966FF', '#FF9F40', '#8AFFC1', '#FFD1DC'
+                ],
+                borderColor: '#222',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: { color: '#fff' }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+{% if debug_admin %}
+    <div class="alert alert-info">✔ Este usuario es administrador</div>
+{% else %}
+    <div class="alert alert-warning">❌ Este usuario NO es administrador</div>
+{% endif %}
+
 
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
 
